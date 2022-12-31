@@ -1,20 +1,22 @@
-import reader
-
 memory = {}
 register = [0 for _ in range(8)]
 stack = []
 address = 0
 codes = []
+handle_input = None
+handle_output = None
+restart = None
 
 MAXINT = 32768
+STOP = False
+LEFT = 3
 
 
 def log_state():
-  print(register)
-  print(codes[-150:])
-  reader.pretty(memory, 6027, 50)
-  input()
-
+  #print(register)
+  #print(codes[-150:])
+  #input()
+  pass
 
 def error(s):
   print(codes[-30:])
@@ -39,8 +41,11 @@ def set_register(i, v):
 
 
 def get_register(i):
+  global LEFT, STOP
   if i == 7 or i - MAXINT == 7 and register[7] != 0:
-    print('register 8')
+    LEFT -= 1
+    if LEFT == 0:
+      STOP = True
     log_state()
   if 0 <= i < 8:
     return register[i]
@@ -96,74 +101,73 @@ def jump(to):
   address = to
 
 
-def run(data, handleInput, handleOutput):
+def run(data):
   for i in range(len(data)):
     store(i, data[i])
 
   while True:
+    if STOP:
+      break
     code = read_value()
-    codes.append((code, address-1))
-
+    #codes.append((code, address-1))
     # if code == 19 and codes[-2][0] != 19:
     #  print(codes[-10:])
     # if 2200 < address and not 2740 < address < 3335 and not 5800 < address < 5950:
     #  print(address)
     # if len(codes) == pL:
     #  print('\n'.join([str(c) for c in codes[-1000:]]))
-    match code:
-      case 0:  # halt
-        return
-      case 1:  # set
-        set_register(read_address(), read_value())
-      case 2:  # push
-        add_to_stack(read_value())
-      case 3:  # pop
-        store(read_address(), remove_from_stack())
-      case 4:  # eq
-        store(read_address(), 1 if read_value() == read_value() else 0)
-      case 5:  # gt
-        store(read_address(), 1 if read_value() > read_value() else 0)
-      case 6:  # jmp
-        jump(read_value())
-      case 7:  # jt
-        a, b = read_value(), read_value()
-        if a != 0:
-          jump(b)
-      case 8:  # jf
-        a, b = read_value(), read_value()
-        if a == 0:
-          jump(b)
-      case 9:  # add
-        store(read_address(), (read_value() + read_value()) % MAXINT)
-      case 10:  # mult
-        store(read_address(), (read_value() * read_value()) % MAXINT)
-      case 11:  # mod
-        store(read_address(), read_value() % read_value())
-      case 12:  # and
-        store(read_address(), read_value() & read_value())
-      case 13:  # or
-        store(read_address(), read_value() | read_value())
-      case 14:  # not
-        store(read_address(), ~read_value() % MAXINT)
-      case 15:  # rmem
-        store(read_address(), get(read_value()))
-      case 16:  # wmem
-        store(read_value(), read_value())
-      case 17:  # call
-        add_to_stack(address + 1)
-        function_name = read_value()
-        if function_name == 1767:
-          print(register)
-          input()
-        jump(function_name)
-        continue
-      case 18:  # ret
-        jump(remove_from_stack())
-      case 19:  # out
-        handleOutput(chr(read_value()))
-      case 20:  # in
-        store(read_address(), ord(handleInput()))
-      case 21:  # noop
-        pass
-      case other:
-        error('code missing ' + str(other))
+    if code == 0:  # halt
+      return
+    elif code == 1:  # set
+      set_register(read_address(), read_value())
+    elif code == 2:  # push
+      add_to_stack(read_value())
+    elif code == 3:  # pop
+      store(read_address(), remove_from_stack())
+    elif code == 4:  # eq
+      store(read_address(), 1 if read_value() == read_value() else 0)
+    elif code == 5:  # gt
+      store(read_address(), 1 if read_value() > read_value() else 0)
+    elif code == 6:  # jmp
+      jump(read_value())
+    elif code == 7:  # jt
+      a, b = read_value(), read_value()
+      if a != 0:
+        jump(b)
+    elif code == 8:  # jf
+      a, b = read_value(), read_value()
+      if a == 0:
+        jump(b)
+    elif code == 9:  # add
+      store(read_address(), (read_value() + read_value()) % MAXINT)
+    elif code == 10:  # mult
+      store(read_address(), (read_value() * read_value()) % MAXINT)
+    elif code == 11:  # mod
+      store(read_address(), read_value() % read_value())
+    elif code == 12:  # and
+      store(read_address(), read_value() & read_value())
+    elif code == 13:  # or
+      store(read_address(), read_value() | read_value())
+    elif code == 14:  # not
+      store(read_address(), ~read_value() % MAXINT)
+    elif code == 15:  # rmem
+      store(read_address(), get(read_value()))
+    elif code == 16:  # wmem
+      store(read_value(), read_value())
+    elif code == 17:  # call
+      add_to_stack(address + 1)
+      jump(read_value())
+      continue
+    elif code == 18:  # ret
+      jump(remove_from_stack())
+    elif code == 19:  # out
+      handle_output(chr(read_value()))
+    elif code == 20:  # in
+      inp = handle_input()
+      if inp == None:
+        inp = handle_input()
+      store(read_address(), ord(inp))
+    elif code == 21:  # noop
+      pass
+    else:
+      error('code missing ' + str(code))

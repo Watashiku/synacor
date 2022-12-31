@@ -2,18 +2,22 @@ import msvcrt
 import struct
 import sys
 import time
-import keyboard
 import core
-import reader
+import code7
 
 
 entry = []
+output_cache = ''
 INTERVAL = 0.05
 SP = ' '
 CR = '\r'
 LF = '\n'
 CRLF = CR + LF
 CACHE = ''
+is_full = False
+filtered_lines = ['A strange, electronic voice is projected into your mind:',
+'"Unusual setting detected!  Starting confirmation process!  Estimated time to completion: 1 billion years."',
+'']
 
 
 def echo(string):
@@ -54,12 +58,37 @@ def inputimeout(timeout):
 
 def handleInput():
   global entry
-  first = True
+  first = is_full
   while not entry:
     try:
       if first:
-        # core.log_state()
-        core.register[-1] = 10000
+        print(core.address)
+        print()
+        print()
+        print()
+        print()
+        print(core.register)
+        print()
+        print()
+        print()
+        print()
+        print()
+        print(core.stack)
+        print()
+        print()
+        print()
+        print()
+        mem = [0 for _ in range(max(core.memory))]
+        for k in range(len(mem)):
+          if k in core.memory:
+            mem[k] = core.memory[k]
+        data = struct.pack('H' * len(mem), *mem)
+        with open('save.bin', mode='wb') as file:  # b is important -> binary
+          file.write(data)
+
+        code7.Code7()
+        print(None)
+        return None
         #core.memory[28844] = 0
       first = False
       entry = list(inputimeout(timeout=0.1)) + ['\n']
@@ -69,7 +98,16 @@ def handleInput():
 
 
 def handleOutput(data):
-  print(data, end='')
+  global output_cache
+  if data == LF:
+    if output_cache.lstrip() not in filtered_lines:
+      print(output_cache)
+      print(output_cache)
+      print(output_cache)
+      input()
+    output_cache = ''
+  else:
+    output_cache += data
 
 
 def cmd(text):
@@ -81,21 +119,33 @@ def cmd(text):
 
 def full(inputs):
   global entry
-  with open('C:\\Users\\Titi\\Downloads\\synacor-challenge\\challenge.bin', mode='rb') as file:  # b is important -> binary
+  with open('challenge.bin', mode='rb') as file:  # b is important -> binary
     fileContent = file.read()
   data = struct.unpack('H' * (len(fileContent) // 2), fileContent)
 
-  reader.pretty_python(data, 2980, len(data))
-  return
-  #core.run(data[1262:], handleInput=handleInput, handleOutput=handleOutput)
-  # return
-
-  for key, text in (('up', 'north\n'), ('left', 'west\n'), ('right', 'east\n'), ('down', 'south\n')):
-    keyboard.on_press_key(
-        key, cmd(text), suppress=True)
-
   entry = list(inputs)
-  core.run(data, handleInput=handleInput, handleOutput=handleOutput)
+  core.run(data)
+
+def checkpoint():
+  
+  with open('save.bin', mode='rb') as file:  # b is important -> binary
+    fileContent = file.read()
+  data = struct.unpack('H' * (len(fileContent) // 2), fileContent)
+
+  for i in range(core.MAXINT, 1700, -1):
+    restart(i, [d for d in data])
+
+
+def restart(r8, data):
+  global entry
+  entry = list('use teleporter\n')
+  print(r8)
+  core.STOP = False
+  core.LEFT = 2
+  core.address = 1799 - 1
+  core.register = [25975, 25974, 26006, 0, 101, 0, 0, r8]
+  core.stack = [6080, 16, 6124, 1, 2826, 32, 4, 13, 101, 0]
+  core.run(data)
 
 
 start = '''take tablet
@@ -152,4 +202,6 @@ take strange book
 take business card
 '''
 
-full(start)
+core.handle_input = handleInput
+core.handle_output = handleOutput
+full(start) if is_full else checkpoint()
